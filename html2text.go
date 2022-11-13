@@ -174,7 +174,7 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 			divider = strings.Repeat("-", dividerLen)
 		}
 
-		if node.DataAtom == atom.H3 {
+		if node.DataAtom != atom.H1 {
 			return ctx.emit("\n\n" + str + "\n" + divider + "\n\n")
 		}
 		return ctx.emit("\n\n" + divider + "\n" + str + "\n" + divider + "\n\n")
