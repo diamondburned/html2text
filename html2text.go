@@ -165,6 +165,7 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 
 		dividerLen := 0
 		for _, line := range strings.Split(str, "\n") {
+			line = strings.TrimSpace(line)
 			if lineLen := runewidth.StringWidth(line); lineLen > dividerLen {
 				dividerLen = lineLen
 			}
@@ -271,7 +272,7 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 			attrVal = ctx.normalizeHrefLink(attrVal)
 			// Don't print link href if it matches link element content or if the link is empty.
 			if (!ctx.options.OmitLinks && attrVal != "" && linkText != attrVal) || !ctx.options.TextOnly {
-				hrefLink = "( " + attrVal + " )"
+				hrefLink = "(" + attrVal + ")"
 			}
 		}
 

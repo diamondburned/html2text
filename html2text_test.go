@@ -52,7 +52,7 @@ func Example() {
 	fmt.Println(text)
 
 	// Output:
-	// Mega Service ( http://jaytaylor.com/ )
+	// Mega Service (http://jaytaylor.com/)
 	//
 	// ******************************************
 	// Welcome to your new account on my service!
@@ -60,9 +60,9 @@ func Example() {
 	//
 	// Here is some more information:
 	//
-	// * Link 1: Example.com ( https://example.com )
-	// * Link 2: Example2.com ( https://example2.com )
-	// * Something else
+	// - Link 1: Example.com (https://example.com)
+	// - Link 2: Example2.com (https://example2.com)
+	// - Something else
 	//
 	// +-------------+-------------+
 	// |  HEADER 1   |  HEADER 2   |
