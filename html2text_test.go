@@ -18,7 +18,11 @@ func Example() {
 			<a href="http://jaytaylor.com/"><img src="/logo-image.jpg" alt="Mega Service"/></a>
 		</div>
 
-		<h1>Welcome to your new account on my service!</h1>
+
+
+		<h1>よおこそ！ Welcome to your new account on my service!</h1>
+
+
 
 		<p>
 			Here is some more information:
@@ -28,7 +32,13 @@ func Example() {
 				<li>Link 2: <a href="https://example2.com">Example2.com</a></li>
 				<li>Something else</li>
 			</ul>
+
+			Here's a really long paragraph:
+			<br />
+			Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Nascetur ridiculus mus mauris vitae. Est ante in nibh mauris cursus mattis. Amet volutpat consequat mauris nunc. Eget egestas purus viverra accumsan in nisl nisi scelerisque. Id aliquet risus feugiat in ante metus. Sit amet commodo nulla facilisi nullam vehicula ipsum. Feugiat in ante metus dictum at tempor commodo. Tincidunt tortor aliquam nulla facilisi cras fermentum odio eu feugiat. Pharetra sit amet aliquam id.
 		</p>
+
+
 
 		<table>
 			<thead>
@@ -54,15 +64,26 @@ func Example() {
 	// Output:
 	// Mega Service (http://jaytaylor.com/)
 	//
-	// ******************************************
-	// Welcome to your new account on my service!
-	// ******************************************
+	// *****************************************************
+	// よおこそ！ Welcome to your new account on my service!
+	// *****************************************************
 	//
 	// Here is some more information:
 	//
 	// - Link 1: Example.com (https://example.com)
 	// - Link 2: Example2.com (https://example2.com)
 	// - Something else
+	//
+	// Here's a really long paragraph:
+	//
+	// Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+	// incididunt ut labore et dolore magna aliqua. Nascetur ridiculus mus mauris
+	// vitae. Est ante in nibh mauris cursus mattis. Amet volutpat consequat mauris
+	// nunc. Eget egestas purus viverra accumsan in nisl nisi scelerisque. Id aliquet
+	// risus feugiat in ante metus. Sit amet commodo nulla facilisi nullam vehicula
+	// ipsum. Feugiat in ante metus dictum at tempor commodo. Tincidunt tortor
+	// aliquam nulla facilisi cras fermentum odio eu feugiat. Pharetra sit amet
+	// aliquam id.
 	//
 	// +-------------+-------------+
 	// |  HEADER 1   |  HEADER 2   |

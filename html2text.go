@@ -72,9 +72,13 @@ func FromHTMLNode(doc *html.Node, o ...Options) (string, error) {
 	}
 
 	ctx := textifyTraverseContext{
-		buf:     bytes.Buffer{},
 		options: options,
 	}
+	ctx.lineWrapper = lineWrapper{
+		out:   &ctx.buf,
+		width: 78,
+	}
+
 	if err := ctx.traverse(doc); err != nil {
 		return "", err
 	}
@@ -110,13 +114,12 @@ func FromString(input string, options ...Options) (string, error) {
 }
 
 var (
-	spacingRe = regexp.MustCompile(`[ \r\n\t]+`)
 	newlineRe = regexp.MustCompile(`\n\n+`)
 )
 
 // traverseTableCtx holds text-related context.
 type textifyTraverseContext struct {
-	buf bytes.Buffer
+	buf strings.Builder
 
 	prefix          string
 	tableCtx        tableTraverseContext
@@ -124,7 +127,8 @@ type textifyTraverseContext struct {
 	endsWithSpace   bool
 	justClosedDiv   bool
 	blockquoteLevel int
-	lineLength      int
+	tableLevel      int
+	lineWrapper     lineWrapper
 	isPre           bool
 }
 
@@ -145,15 +149,25 @@ func (tableCtx *tableTraverseContext) init() {
 	tableCtx.tmpRow = 0
 }
 
+func (ctx *textifyTraverseContext) sub() *textifyTraverseContext {
+	subCtx := textifyTraverseContext{}
+	subCtx.options = ctx.options
+	subCtx.lineWrapper = lineWrapper{
+		out:   &subCtx.buf,
+		width: ctx.lineWrapper.width,
+	}
+	return &subCtx
+}
+
 func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 	ctx.justClosedDiv = false
 
 	switch node.DataAtom {
 	case atom.Br:
-		return ctx.emit("\n")
+		return ctx.emit("\n\n")
 
 	case atom.H1, atom.H2, atom.H3:
-		subCtx := textifyTraverseContext{}
+		subCtx := ctx.sub()
 		if err := subCtx.traverseChildren(node); err != nil {
 			return err
 		}
@@ -165,7 +179,7 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 
 		dividerLen := 0
 		for _, line := range strings.Split(str, "\n") {
-			line = strings.TrimSpace(line)
+			line = strings.TrimRightFunc(line, unicode.IsSpace)
 			if lineLen := runewidth.StringWidth(line); lineLen > dividerLen {
 				dividerLen = lineLen
 			}
@@ -178,10 +192,19 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 			divider = strings.Repeat("-", dividerLen)
 		}
 
-		if node.DataAtom != atom.H1 {
-			return ctx.emit("\n\n" + str + "\n" + divider + "\n\n")
+		ctx.emit("\n\n")
+
+		if node.DataAtom == atom.H1 {
+			ctx.emit(divider)
+			ctx.emit("\n")
 		}
-		return ctx.emit("\n\n" + divider + "\n" + str + "\n" + divider + "\n\n")
+
+		ctx.emit(str)
+		ctx.emit("\n")
+
+		ctx.emit(divider)
+		ctx.emit("\n\n")
+		return nil
 
 	case atom.Blockquote:
 		ctx.blockquoteLevel++
@@ -209,11 +232,7 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 		return ctx.emit("\n\n")
 
 	case atom.Div:
-		if ctx.lineLength > 0 {
-			if err := ctx.emit("\n"); err != nil {
-				return err
-			}
-		}
+		ctx.lineWrapper.flush()
 		if err := ctx.traverseChildren(node); err != nil {
 			return err
 		}
@@ -238,7 +257,7 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 		return ctx.emit("\n")
 
 	case atom.B, atom.Strong:
-		subCtx := textifyTraverseContext{}
+		subCtx := ctx.sub()
 		subCtx.endsWithSpace = true
 		if err := subCtx.traverseChildren(node); err != nil {
 			return err
@@ -281,7 +300,12 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 	case atom.P, atom.Ul:
 		return ctx.paragraphHandler(node)
 
-	case atom.Table, atom.Tfoot, atom.Th, atom.Tr, atom.Td:
+	case atom.Table:
+		ctx.tableLevel++
+		defer func() { ctx.tableLevel-- }()
+
+		fallthrough
+	case atom.Tfoot, atom.Th, atom.Tr, atom.Td:
 		if ctx.options.PrettyTables {
 			return ctx.handleTableElement(node)
 		} else if node.DataAtom == atom.Table {
@@ -416,7 +440,7 @@ func (ctx *textifyTraverseContext) traverse(node *html.Node) error {
 		if ctx.isPre {
 			data = node.Data
 		} else {
-			data = strings.TrimSpace(spacingRe.ReplaceAllString(node.Data, " "))
+			data = strings.TrimSpace(node.Data)
 		}
 		return ctx.emit(data)
 
@@ -436,82 +460,25 @@ func (ctx *textifyTraverseContext) traverseChildren(node *html.Node) error {
 }
 
 func (ctx *textifyTraverseContext) emit(data string) error {
-	if data == "" {
+	if ctx.tableLevel > 0 {
+		ctx.lineWrapper.flush()
+		ctx.buf.WriteString(data)
 		return nil
 	}
-	var (
-		lines = ctx.breakLongLines(data)
-		err   error
-	)
-	for _, line := range lines {
-		runes := []rune(line)
-		startsWithSpace := unicode.IsSpace(runes[0])
-		if !startsWithSpace && !ctx.endsWithSpace && !strings.HasPrefix(data, ".") {
-			if err = ctx.buf.WriteByte(' '); err != nil {
-				return err
-			}
-			ctx.lineLength++
-		}
-		ctx.endsWithSpace = unicode.IsSpace(runes[len(runes)-1])
-		for _, c := range line {
-			if _, err = ctx.buf.WriteString(string(c)); err != nil {
-				return err
-			}
-			ctx.lineLength += runewidth.RuneWidth(c)
-			if c == '\n' {
-				ctx.lineLength = 0
-				if ctx.prefix != "" {
-					if _, err = ctx.buf.WriteString(ctx.prefix); err != nil {
-						return err
-					}
-				}
-			}
-		}
+
+	switch data {
+	case "":
+		return nil
+	case "\n":
+		ctx.lineWrapper.flush()
+		return nil
+	case "\n\n":
+		ctx.lineWrapper.flushN(2)
+		return nil
 	}
+
+	ctx.lineWrapper.write(data)
 	return nil
-}
-
-const maxLineLen = 74
-
-func (ctx *textifyTraverseContext) breakLongLines(data string) []string {
-	// Only break lines when in blockquotes.
-	if ctx.blockquoteLevel == 0 {
-		return []string{data}
-	}
-	var (
-		ret      = []string{}
-		runes    = []rune(data)
-		l        = len(runes)
-		existing = ctx.lineLength
-	)
-	if existing >= maxLineLen {
-		ret = append(ret, "\n")
-		existing = 0
-	}
-	for l+existing > maxLineLen {
-		i := maxLineLen - existing
-		for i >= 0 && !unicode.IsSpace(runes[i]) {
-			i--
-		}
-		if i == -1 {
-			// No spaces, so go the other way.
-			i = maxLineLen - existing
-			for i < l && !unicode.IsSpace(runes[i]) {
-				i++
-			}
-		}
-		ret = append(ret, string(runes[:i])+"\n")
-		for i < l && unicode.IsSpace(runes[i]) {
-			i++
-		}
-		runes = runes[i:]
-		l = len(runes)
-		existing = 0
-	}
-	if len(runes) > 0 {
-		ret = append(ret, string(runes))
-	}
-	return ret
 }
 
 func (ctx *textifyTraverseContext) normalizeHrefLink(link string) string {
@@ -549,4 +516,66 @@ func getAttrVal(node *html.Node, attrName string) string {
 	}
 
 	return ""
+}
+
+// lineWrapper is copied from package go/doc. It is slightly modified to support
+// proper rune widths.
+type lineWrapper struct {
+	out       io.Writer
+	width     int
+	n         int
+	nl        int
+	pendSpace int
+	printed   bool
+}
+
+var nl = []byte("\n")
+var space = []byte(" ")
+
+func (l *lineWrapper) write(text string) {
+	if l.n == 0 && l.printed {
+		l.flush() // blank line before new paragraph
+	}
+
+	l.printed = true
+	l.nl = 0
+
+	for _, f := range strings.Fields(text) {
+		w := runewidth.StringWidth(f)
+		// wrap if line is too long
+		if l.n > 0 && l.n+l.pendSpace+w > l.width {
+			l.out.Write(nl)
+			l.n = 0
+			l.pendSpace = 0
+		}
+		l.out.Write(space[:l.pendSpace])
+		l.out.Write([]byte(f))
+		l.n += l.pendSpace + w
+		l.pendSpace = 1
+	}
+}
+
+func (l *lineWrapper) flush() {
+	l.flushN(1)
+}
+
+func (l *lineWrapper) flushN(n int) {
+	if l.n == 0 && l.nl >= n {
+		return
+	}
+
+	n -= l.nl
+	if n < 1 {
+		return
+	}
+
+	if n == 1 {
+		l.out.Write(nl)
+	} else {
+		l.out.Write(bytes.Repeat(nl, n))
+	}
+
+	l.pendSpace = 0
+	l.n = 0
+	l.nl += n
 }
