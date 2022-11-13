@@ -225,7 +225,7 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 
 	case atom.Li:
 		if !ctx.options.TextOnly {
-			if err := ctx.emit("* "); err != nil {
+			if err := ctx.emit("- "); err != nil {
 				return err
 			}
 		}
