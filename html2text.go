@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/olekukonko/tablewriter"
 	"github.com/ssor/bom"
 	"golang.org/x/net/html"
@@ -161,12 +162,14 @@ func (ctx *textifyTraverseContext) handleElement(node *html.Node) error {
 		if ctx.options.TextOnly {
 			return ctx.emit(str + "\n\n")
 		}
+
 		dividerLen := 0
 		for _, line := range strings.Split(str, "\n") {
-			if lineLen := len([]rune(line)); lineLen-1 > dividerLen {
-				dividerLen = lineLen - 1
+			if lineLen := runewidth.StringWidth(line); lineLen > dividerLen {
+				dividerLen = lineLen
 			}
 		}
+
 		var divider string
 		if node.DataAtom == atom.H1 {
 			divider = strings.Repeat("*", dividerLen)
