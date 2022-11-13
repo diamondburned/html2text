@@ -456,7 +456,7 @@ func (ctx *textifyTraverseContext) emit(data string) error {
 			if _, err = ctx.buf.WriteString(string(c)); err != nil {
 				return err
 			}
-			ctx.lineLength++
+			ctx.lineLength += runewidth.RuneWidth(c)
 			if c == '\n' {
 				ctx.lineLength = 0
 				if ctx.prefix != "" {
